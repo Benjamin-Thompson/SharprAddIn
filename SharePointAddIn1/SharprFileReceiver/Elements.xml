@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Elements xmlns="http://schemas.microsoft.com/sharepoint/">
+  <Receivers ListTemplateId="101">
+    <Receiver>
+      <Name>SharprFileReceiverItemAttachmentAdded</Name>
+      <Type>ItemAttachmentAdded</Type>
+      <SequenceNumber>10000</SequenceNumber>
+      <Url>~remoteAppUrl/Services/SharprFileReceiver.svc</Url>
+    </Receiver>
+    <Receiver>
+      <Name>SharprFileReceiverItemAttachmentDeleted</Name>
+      <Type>ItemAttachmentDeleted</Type>
+      <SequenceNumber>10000</SequenceNumber>
+      <Url>~remoteAppUrl/Services/SharprFileReceiver.svc</Url>
+    </Receiver>
+  </Receivers>
+</Elements>

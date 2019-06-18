@@ -1,0 +1,1 @@
+﻿<%@ ServiceHost Language="C#" Debug="true" Service="SharePointAddIn1Web.Services.SharprFileReceiver" CodeBehind="SharprFileReceiver.svc.cs" %>

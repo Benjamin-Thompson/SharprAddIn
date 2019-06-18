@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28307.645
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharePointAddIn1", "SharePointAddIn1\SharePointAddIn1.csproj", "{9ACF2F93-B7D8-4C2F-B193-9FFE78822E7A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharePointAddIn1Web", "SharePointAddIn1Web\SharePointAddIn1Web.csproj", "{61051DCA-0449-4626-AA99-3465DA4E0595}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,6 +19,10 @@ Global
 		{9ACF2F93-B7D8-4C2F-B193-9FFE78822E7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9ACF2F93-B7D8-4C2F-B193-9FFE78822E7A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9ACF2F93-B7D8-4C2F-B193-9FFE78822E7A}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{61051DCA-0449-4626-AA99-3465DA4E0595}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{61051DCA-0449-4626-AA99-3465DA4E0595}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{61051DCA-0449-4626-AA99-3465DA4E0595}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{61051DCA-0449-4626-AA99-3465DA4E0595}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
