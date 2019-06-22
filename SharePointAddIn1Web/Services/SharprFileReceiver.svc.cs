@@ -14,26 +14,29 @@ namespace SharePointAddIn1Web.Services
 {
     public class SharprFileReceiver : IRemoteEventService
     {
-        private string _auth;
-        private string _baseUrl = "https://etechcons-testapi.azurewebsites.net/api/"; //todo : update this when Sharpr gets the new endpoints
-        private CredentialCache _credentialCache;
+        private static string _logAuth;
+        private static string _logBaseUrl = "https://etechcons-testapi.azurewebsites.net/api/"; //todo : update this when Sharpr gets the new endpoints
+        private static CredentialCache _credentialCache;
+        private static string _sharprUser = "1rs2PCCgCvR8M1YVTVYZ";
+        private static string _sharprPass = "05gkNHgXkB9KYDzQylSK1BTJ8mH455xj6t4xXbLn";
+        private static string _sharprURL = "https://sharpr.com/api/";
 
-        private NetworkCredential GetCredential()
+        private static NetworkCredential GetCredential()
         {
             if (_credentialCache != null)
-                return _credentialCache.GetCredential(new Uri(_baseUrl), _auth);
+                return _credentialCache.GetCredential(new Uri(_logBaseUrl), _logAuth);
 
             return null;
         }
-        private void AddCredential(NetworkCredential cred)
+        private static void AddCredential(NetworkCredential cred)
         {
             if (_credentialCache == null)
             {
                 _credentialCache = new CredentialCache();
             }
-            if (_credentialCache.GetCredential(new Uri(_baseUrl), _auth) == null)
+            if (_credentialCache.GetCredential(new Uri(_logBaseUrl), _logAuth) == null)
             {
-                _credentialCache.Add(new Uri(_baseUrl), _auth, cred);
+                _credentialCache.Add(new Uri(_logBaseUrl), _logAuth, cred);
             }
 
         }
@@ -54,13 +57,17 @@ namespace SharePointAddIn1Web.Services
                     clientContext.Load(clientContext.Web);
                     clientContext.ExecuteQuery();
 
-                    //temporary code to be replaced with Sharpr's new API endpoint
+                    if (properties.EventType == SPRemoteEventType.ItemAttachmentAdded)
+                    {
+                        OnAddFiles(properties, clientContext);
 
-                    var apiHttp = new HTTPService(_auth, _baseUrl);
-                    var cred = GetCredential();
-                    string content = "\"ProcessEvent method fired\"";
-                    var t = apiHttp.HttpCallAsync<string>(cred, $"Test/", System.Net.Http.HttpMethod.Post, content, default);
+                    }
+                    else if (properties.EventType == SPRemoteEventType.ItemAttachmentDeleted)
+                    {
+                        OnRemoveFiles(properties, clientContext);
+                    }
 
+                    LogMessage("Executed ProcessEvent");
                 }
             }
 
@@ -82,30 +89,35 @@ namespace SharePointAddIn1Web.Services
 
                     if (properties.EventType == SPRemoteEventType.ItemAttachmentAdded)
                     {
-                        AddFiles(properties, clientContext);
+                        OnAddFiles(properties, clientContext);
 
                     }
                     else if (properties.EventType == SPRemoteEventType.ItemAttachmentDeleted)
                     {
-
+                        OnRemoveFiles(properties, clientContext);
                     }
-                    
+
                     //test code 
                     //mocked up to call a test webapi in place of Sharpr's
                     //(to be replaced when Sharpr finishes publishing their new API)
 
-
-                    var apiHttp = new HTTPService(_auth, _baseUrl);
-                    var cred = GetCredential();
-                    string content = "\"ProcessOneWayEvent method fired\"";
-                    var t = apiHttp.HttpCallAsync<string>(cred, $"Test/", System.Net.Http.HttpMethod.Post, content, default);
+                    LogMessage("Executed One Way Event");
 
                 }
 
             }
         }
 
-        private static void AddFiles(SPRemoteEventProperties properties, ClientContext clientContext)
+        private static void LogMessage(string message)
+        {
+
+            var apiHttp = new HTTPService(_logAuth, _logBaseUrl);
+            var cred = GetCredential();
+            string content = "\"" + message + "\"";
+            var t = apiHttp.HttpCallAsync<string>(cred, $"Test/", System.Net.Http.HttpMethod.Post, content, default);
+        }
+
+        private static void OnAddFiles(SPRemoteEventProperties properties, ClientContext clientContext)
         {
             List oList = clientContext.Web.Lists.GetById(properties.ItemEventProperties.ListId);
             clientContext.Load(oList);
@@ -128,14 +140,31 @@ namespace SharePointAddIn1Web.Services
                 mStream.Write(fileContents, 0, fileContents.Length);
 
                 //now that we have the contents, upload to Sharpr
-
+                UploadFileToSharpr(sf.UniqueId.ToString(), sf.Name, sf.Tag.ToString(), mStream);
             }
         }
 
-        private HttpClient CreateSharprRequest(string user, string pass)
+
+        private static void OnRemoveFiles(SPRemoteEventProperties properties, ClientContext clientContext)
+        {
+            List oList = clientContext.Web.Lists.GetById(properties.ItemEventProperties.ListId);
+            clientContext.Load(oList);
+            clientContext.ExecuteQuery();
+
+            ListItem item = oList.GetItemById(properties.ItemEventProperties.ListItemId);
+
+            foreach (Attachment f in item.AttachmentFiles)
+            {
+                Microsoft.SharePoint.Client.File sf = clientContext.Web.GetFileByServerRelativeUrl(f.ServerRelativeUrl);
+
+                RemoveFileFromSharpr(sf.UniqueId.ToString(), sf.Name);
+            }
+        }
+
+        private static HttpClient CreateSharprRequest()
         {
             var client = new HttpClient();
-            var userpass = Encoding.UTF8.GetBytes(user + ":" + pass);
+            var userpass = Encoding.UTF8.GetBytes(_sharprUser + ":" + _sharprPass);
             var userpassB64 = Convert.ToBase64String(userpass);
 
             client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", userpassB64);
@@ -145,10 +174,10 @@ namespace SharePointAddIn1Web.Services
             return client;
         }
 
-        private string UploadFileToSharpr(string user, string pass, string fileGUID, string fileName, MemoryStream fileContents)
+        private static string UploadFileToSharpr(string fileGUID, string fileName, string tags, MemoryStream fileContents)
         {
             string result = "PENDING";
-            HttpClient client = CreateSharprRequest(user, pass);
+            HttpClient client = CreateSharprRequest();
 
             if (fileContents.CanRead && fileContents.Length > 0)
             {
@@ -161,15 +190,15 @@ namespace SharePointAddIn1Web.Services
                 sb.Append("\"ref\":\"" + fileGUID + "\",");
                 sb.Append("\"filename\":\"" + fileName + "\",");
                 sb.Append("\"data\":\"" + fileDataString + "\",");
-                sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\"");
+                sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\",");
                 //sb.Append("\"category\":\"" + fileGUID + "\",");
                 //sb.Append("\"classification\":\"" + fileGUID + "\",");
-                //sb.Append("\"tags\":\"" + fileGUID + "\",");
+                sb.Append("\"tags\":\"" + tags + "\"");
                 sb.Append("}");
 
                 var content = new StringContent(sb.ToString(), Encoding.UTF8, "application/json");
 
-                var tResponse = client.PostAsync("https://sharpr.com/api/v2/files/sync", content);
+                var tResponse = client.PostAsync( _sharprURL + "v2/files/sync", content);
                 tResponse.Wait();
 
                 var tRead = tResponse.Result.Content.ReadAsStringAsync();
@@ -186,10 +215,10 @@ namespace SharePointAddIn1Web.Services
         }
 
 
-        private string RemoveFileFromSharpr(string user, string pass, string fileGUID, string fileName)
+        private static string RemoveFileFromSharpr(string fileGUID, string fileName)
         {
             string result = "PENDING";
-            HttpClient client = CreateSharprRequest(user, pass);
+            HttpClient client = CreateSharprRequest();
 
             ArraySegment<byte> buffer = new ArraySegment<byte>();
 
@@ -211,7 +240,7 @@ namespace SharePointAddIn1Web.Services
 
                 var content = new StringContent(sb.ToString(), Encoding.UTF8, "application/json");
 
-                var tResponse = client.DeleteAsync("https://sharpr.com/api/v2/files/sync");
+                var tResponse = client.DeleteAsync(_sharprURL + "v2/files/sync/" + fileGUID);
                 tResponse.Wait();
 
                 var tRead = tResponse.Result.Content.ReadAsStringAsync();
