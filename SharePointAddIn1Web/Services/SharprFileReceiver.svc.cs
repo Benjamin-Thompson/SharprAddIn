@@ -18,8 +18,8 @@ namespace SharePointAddIn1Web.Services
         private static string _logBaseUrl = "https://etechcons-testapi.azurewebsites.net/api/"; //todo : update this when Sharpr gets the new endpoints
         private static CredentialCache _credentialCache;
         private static string _sharprUser = "1rs2PCCgCvR8M1YVTVYZ";
-        private static string _sharprPass = "05gkNHgXkB9KYDzQylSK1BTJ8mH455xj6t4xXbLn";
-        private static string _sharprURL = "https://sharpr.com/api/";
+        private static string _sharprPass = "05gkNHgXkB9KYDzQylSK1BTJ8mH455xj6t4xXbLn ";
+        private static string _sharprURL = "https://sharprua.com/api/";
 
         private static NetworkCredential GetCredential()
         {
@@ -59,15 +59,17 @@ namespace SharePointAddIn1Web.Services
 
                     if (properties.EventType == SPRemoteEventType.ItemAttachmentAdded)
                     {
+                        //LogMessage("Executed ProcessEvent - ItemAttachmentAdded");
                         OnAddFiles(properties, clientContext);
 
                     }
                     else if (properties.EventType == SPRemoteEventType.ItemAttachmentDeleted)
                     {
+                        //LogMessage("Executed ProcessEvent - ItemAttachmentDeleted");
                         OnRemoveFiles(properties, clientContext);
                     }
 
-                    LogMessage("Executed ProcessEvent");
+                    //LogMessage("Executed ProcessEvent");
                 }
             }
 
@@ -89,11 +91,13 @@ namespace SharePointAddIn1Web.Services
 
                     if (properties.EventType == SPRemoteEventType.ItemAttachmentAdded)
                     {
+                        //LogMessage("Executed One Way Event - ItemAttachementAdded");
                         OnAddFiles(properties, clientContext);
 
                     }
                     else if (properties.EventType == SPRemoteEventType.ItemAttachmentDeleted)
                     {
+                        //LogMessage("Executed One Way Event - ItemAttachementDeleted");
                         OnRemoveFiles(properties, clientContext);
                     }
 
@@ -101,7 +105,7 @@ namespace SharePointAddIn1Web.Services
                     //mocked up to call a test webapi in place of Sharpr's
                     //(to be replaced when Sharpr finishes publishing their new API)
 
-                    LogMessage("Executed One Way Event");
+                    //LogMessage("Executed One Way Event");
 
                 }
 
@@ -139,8 +143,15 @@ namespace SharePointAddIn1Web.Services
 
                 mStream.Write(fileContents, 0, fileContents.Length);
 
+                string[] tags = null;
+
+                if (sf.Tag != null)
+                {
+                    //split comma delimited tags into an array of strings
+                    tags = ((string)sf.Tag).Split(',');
+                }
                 //now that we have the contents, upload to Sharpr
-                UploadFileToSharpr(sf.UniqueId.ToString(), sf.Name, sf.Tag.ToString(), mStream);
+                UploadFileToSharpr(sf.UniqueId.ToString(), sf.Name, tags, mStream);
             }
         }
 
@@ -157,24 +168,27 @@ namespace SharePointAddIn1Web.Services
             {
                 Microsoft.SharePoint.Client.File sf = clientContext.Web.GetFileByServerRelativeUrl(f.ServerRelativeUrl);
 
-                RemoveFileFromSharpr(sf.UniqueId.ToString(), sf.Name);
+                RemoveFileFromSharpr(sf.UniqueId.ToString());
             }
         }
 
         private static HttpClient CreateSharprRequest()
         {
             var client = new HttpClient();
-            var userpass = Encoding.UTF8.GetBytes(_sharprUser + ":" + _sharprPass);
-            var userpassB64 = Convert.ToBase64String(userpass);
+
+            string userpass = _sharprUser + ":" + _sharprPass;
+            var userpassB = Encoding.UTF8.GetBytes(userpass);
+            var userpassB64 = Convert.ToBase64String(userpassB);
+
+            //var decrypted = Convert.FromBase64String("MXJzMlBDQ2dDdlI4TTFZVlRWWVo6MDVna05IZ1hrQjlLWUR6UXlsU0sxQlRKOG1INDU1eGo2dDR4WGJMbiA=");
 
             client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", userpassB64);
             client.DefaultRequestHeaders.Add("Accept-Encoding", "deflate");
-            //client.DefaultRequestHeaders.Add("Content-Type", "application/json");
 
             return client;
         }
 
-        private static string UploadFileToSharpr(string fileGUID, string fileName, string tags, MemoryStream fileContents)
+        private static string UploadFileToSharpr(string fileGUID, string fileName, string[] tags, MemoryStream fileContents)
         {
             string result = "PENDING";
             HttpClient client = CreateSharprRequest();
@@ -182,23 +196,30 @@ namespace SharePointAddIn1Web.Services
             if (fileContents.CanRead && fileContents.Length > 0)
             {
                 string fileDataString = Convert.ToBase64String(fileContents.ToArray());
-
-                //# An API Response ID is also sent that references Sharpr's log ID
-                //responseId = response.getHeader("API-Response-Id")
                 StringBuilder sb = new StringBuilder();
                 sb.Append("{");
                 sb.Append("\"ref\":\"" + fileGUID + "\",");
                 sb.Append("\"filename\":\"" + fileName + "\",");
                 sb.Append("\"data\":\"" + fileDataString + "\",");
-                sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\",");
+                sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\"");
                 //sb.Append("\"category\":\"" + fileGUID + "\",");
                 //sb.Append("\"classification\":\"" + fileGUID + "\",");
-                sb.Append("\"tags\":\"" + tags + "\"");
+                if (tags != null)
+                {
+                    sb.Append(", \"tags\":{");
+                    foreach(string t in tags)
+                    {
+                        sb.Append("\"" + t + "\",");
+                    }
+                    sb.Remove(sb.Length - 1, 1); //remove the trailing ","
+                    sb.Append( "}");
+                }
+                
                 sb.Append("}");
 
                 var content = new StringContent(sb.ToString(), Encoding.UTF8, "application/json");
 
-                var tResponse = client.PostAsync( _sharprURL + "v2/files/sync", content);
+                var tResponse = client.PutAsync(_sharprURL + "v2/files/sync", content);
                 tResponse.Wait();
 
                 var tRead = tResponse.Result.Content.ReadAsStringAsync();
@@ -211,11 +232,13 @@ namespace SharePointAddIn1Web.Services
                 result = "FILE-EMPTY";
             }
 
+            client.Dispose();
+
             return result;
         }
 
 
-        private static string RemoveFileFromSharpr(string fileGUID, string fileName)
+        private static string RemoveFileFromSharpr(string fileGUID)
         {
             string result = "PENDING";
             HttpClient client = CreateSharprRequest();
@@ -229,13 +252,8 @@ namespace SharePointAddIn1Web.Services
                 //responseId = response.getHeader("API-Response-Id")
                 StringBuilder sb = new StringBuilder();
                 sb.Append("{");
-                sb.Append("\"ref\":\"" + fileGUID + "\",");
-                //sb.Append("\"filename\":\"" + fileName + "\",");
-                //sb.Append("\"data\":\"" + fileDataString + "\",");
-                //sb.Append("\"file_size\":\"" + fileDataString.Length + "\",");
-                //sb.Append("\"category\":\"" + fileGUID + "\",");
-                //sb.Append("\"classification\":\"" + fileGUID + "\",");
-                //sb.Append("\"tags\":\"" + fileGUID + "\",");
+                sb.Append("\"ref\":\"" + fileGUID + "\"");
+
                 sb.Append("}");
 
                 var content = new StringContent(sb.ToString(), Encoding.UTF8, "application/json");
@@ -252,6 +270,8 @@ namespace SharePointAddIn1Web.Services
             {
                 result = "FILE-EMPTY";
             }
+
+            client.Dispose();
 
             return result;
         }
