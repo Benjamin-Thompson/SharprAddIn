@@ -9,6 +9,7 @@ using System.Security.Authentication;
 using System.Net.Http;
 using System.Net;
 using System.IO;
+using System.Web;
 
 namespace SharePointAddIn1Web.Services
 {
@@ -132,12 +133,18 @@ namespace SharePointAddIn1Web.Services
             foreach (Attachment f in item.AttachmentFiles)
             {
                 Microsoft.SharePoint.Client.File sf = clientContext.Web.GetFileByServerRelativeUrl(f.ServerRelativeUrl);
+                clientContext.Load(sf);
+                clientContext.ExecuteQuery();
+
+                string mimeType = MimeMapping.GetMimeMapping(sf.Name);
+
                 FileInfo myFileinfo = new FileInfo(sf.Name);
                 WebClient client1 = new WebClient();
                 client1.Credentials = clientContext.Credentials;
 
                 byte[] fileContents =
                       client1.DownloadData(sf.LinkingUrl);
+                      
 
                 MemoryStream mStream = new MemoryStream();
 
@@ -150,8 +157,9 @@ namespace SharePointAddIn1Web.Services
                     //split comma delimited tags into an array of strings
                     tags = ((string)sf.Tag).Split(',');
                 }
+                string contentType = mimeType;
                 //now that we have the contents, upload to Sharpr
-                UploadFileToSharpr(sf.UniqueId.ToString(), sf.Name, tags, mStream);
+                UploadFileToSharpr(sf.UniqueId.ToString(), sf.Name, tags, contentType, mStream);
             }
         }
 
@@ -188,19 +196,19 @@ namespace SharePointAddIn1Web.Services
             return client;
         }
 
-        private static string UploadFileToSharpr(string fileGUID, string fileName, string[] tags, MemoryStream fileContents)
+        private static string UploadFileToSharpr(string fileGUID, string fileName, string[] tags, string contentType, MemoryStream fileContents)
         {
             string result = "PENDING";
             HttpClient client = CreateSharprRequest();
 
             if (fileContents.CanRead && fileContents.Length > 0)
             {
-                string fileDataString = Convert.ToBase64String(fileContents.ToArray());
+                string fileDataString = contentType + Convert.ToBase64String(fileContents.ToArray());
                 StringBuilder sb = new StringBuilder();
                 sb.Append("{");
                 sb.Append("\"ref\":\"" + fileGUID + "\",");
                 sb.Append("\"filename\":\"" + fileName + "\",");
-                sb.Append("\"data\":\"" + fileDataString + "\",");
+                sb.Append("\"data\":\"data:" + contentType + ";base64, " + fileDataString + "\",");
                 sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\"");
                 //sb.Append("\"category\":\"" + fileGUID + "\",");
                 //sb.Append("\"classification\":\"" + fileGUID + "\",");
