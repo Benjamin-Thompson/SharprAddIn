@@ -1,15 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Microsoft.SharePoint.Client;
 using Microsoft.SharePoint.Client.EventReceivers;
-using SharePointAddIn1Web.DataService;
-using System.Security.Authentication;
 using System.Net.Http;
 using System.Net;
 using System.IO;
 using System.Web;
+using SharePointAddIn1Web.DataService;
 
 namespace SharePointAddIn1Web.Services
 {
@@ -18,8 +15,8 @@ namespace SharePointAddIn1Web.Services
         private static string _logAuth;
         private static string _logBaseUrl = "https://etechcons-testapi.azurewebsites.net/api/"; //todo : update this when Sharpr gets the new endpoints
         private static CredentialCache _credentialCache;
-        private static string _sharprUser = "1rs2PCCgCvR8M1YVTVYZ";
-        private static string _sharprPass = "05gkNHgXkB9KYDzQylSK1BTJ8mH455xj6t4xXbLn ";
+        private static string _sharprUser = "1xnTyjWyD0s5BtVZpZCN";
+        private static string _sharprPass = "1jnvrrfmvpFnBYZxx8DNVknFZmthQqpYRB7q3L09 ";
         private static string _sharprURL = "https://sharprua.com/api/";
 
         private static NetworkCredential GetCredential()
@@ -49,6 +46,7 @@ namespace SharePointAddIn1Web.Services
             /// <returns>Holds information returned from the remote event.</returns>
             public SPRemoteEventResult ProcessEvent(SPRemoteEventProperties properties)
         {
+            Logger.WriteLog(Logger.Category.Information, "ProcessEvent", "Started.");
             SPRemoteEventResult result = new SPRemoteEventResult();
 
             using (ClientContext clientContext = TokenHelper.CreateRemoteEventReceiverClientContext(properties))
@@ -58,19 +56,19 @@ namespace SharePointAddIn1Web.Services
                     clientContext.Load(clientContext.Web);
                     clientContext.ExecuteQuery();
 
-                    if (properties.EventType == SPRemoteEventType.ItemAttachmentAdded)
+                    if (properties.EventType == SPRemoteEventType.ItemAdded)
                     {
-                        //LogMessage("Executed ProcessEvent - ItemAttachmentAdded");
+                        Logger.WriteLog(Logger.Category.Information, "ProcessEvent", "EventType == ItemAdded");
                         OnAddFiles(properties, clientContext);
 
                     }
-                    else if (properties.EventType == SPRemoteEventType.ItemAttachmentDeleted)
+                    else if (properties.EventType == SPRemoteEventType.ItemDeleted)
                     {
-                        //LogMessage("Executed ProcessEvent - ItemAttachmentDeleted");
+                        Logger.WriteLog(Logger.Category.Information, "ProcessEvent", "EventType == ItemDeleted");
                         OnRemoveFiles(properties, clientContext);
                     }
 
-                    //LogMessage("Executed ProcessEvent");
+                    Logger.WriteLog(Logger.Category.Information, "ProcessEvent", "Completed.");
                 }
             }
 
@@ -83,6 +81,7 @@ namespace SharePointAddIn1Web.Services
         /// <param name="properties">Holds information about the remote event.</param>
         public void ProcessOneWayEvent(SPRemoteEventProperties properties)
         {
+            Logger.WriteLog(Logger.Category.Information, "ProcessOneWayEvent", "Started.");
             using (ClientContext clientContext = TokenHelper.CreateRemoteEventReceiverClientContext(properties))
             {
                 if (clientContext != null)
@@ -90,15 +89,15 @@ namespace SharePointAddIn1Web.Services
                     clientContext.Load(clientContext.Web);
                     clientContext.ExecuteQuery();
 
-                    if (properties.EventType == SPRemoteEventType.ItemAttachmentAdded)
+                    if (properties.EventType == SPRemoteEventType.ItemAdded)
                     {
-                        //LogMessage("Executed One Way Event - ItemAttachementAdded");
+                        Logger.WriteLog(Logger.Category.Information, "ProcessOneWayEvent", "EventType == ItemAdded");
                         OnAddFiles(properties, clientContext);
 
                     }
-                    else if (properties.EventType == SPRemoteEventType.ItemAttachmentDeleted)
+                    else if (properties.EventType == SPRemoteEventType.ItemDeleted)
                     {
-                        //LogMessage("Executed One Way Event - ItemAttachementDeleted");
+                        Logger.WriteLog(Logger.Category.Information, "ProcessOneWayEvent", "EventType == ItemDeleted");
                         OnRemoveFiles(properties, clientContext);
                     }
 
@@ -106,77 +105,94 @@ namespace SharePointAddIn1Web.Services
                     //mocked up to call a test webapi in place of Sharpr's
                     //(to be replaced when Sharpr finishes publishing their new API)
 
-                    //LogMessage("Executed One Way Event");
+                    Logger.WriteLog(Logger.Category.Information, "ProcessOneWayEvent", "Completed.");
 
                 }
 
             }
         }
 
-        private static void LogMessage(string message)
-        {
+        //private static void LogMessage(string message)
+        //{
 
-            var apiHttp = new HTTPService(_logAuth, _logBaseUrl);
-            var cred = GetCredential();
-            string content = "\"" + message + "\"";
-            var t = apiHttp.HttpCallAsync<string>(cred, $"Test/", System.Net.Http.HttpMethod.Post, content, default);
-        }
+        //    var apiHttp = new HTTPService(_logAuth, _logBaseUrl);
+        //    var cred = GetCredential();
+        //    string content = "\"" + message + "\"";
+        //    var t = apiHttp.HttpCallAsync<string>(cred, $"Test/", System.Net.Http.HttpMethod.Post, content, default);
+        //}
 
         private static void OnAddFiles(SPRemoteEventProperties properties, ClientContext clientContext)
         {
-            List oList = clientContext.Web.Lists.GetById(properties.ItemEventProperties.ListId);
-            clientContext.Load(oList);
-            clientContext.ExecuteQuery();
-
-            ListItem item = oList.GetItemById(properties.ItemEventProperties.ListItemId);
-
-            foreach (Attachment f in item.AttachmentFiles)
+            Logger.WriteLog(Logger.Category.Information, "OnAddFiles", "Started.");
+            try
             {
-                Microsoft.SharePoint.Client.File sf = clientContext.Web.GetFileByServerRelativeUrl(f.ServerRelativeUrl);
-                clientContext.Load(sf);
+                List oList = clientContext.Web.Lists.GetById(properties.ItemEventProperties.ListId);
+                clientContext.Load(oList);
                 clientContext.ExecuteQuery();
 
-                string mimeType = MimeMapping.GetMimeMapping(sf.Name);
+                ListItem item = oList.GetItemById(properties.ItemEventProperties.ListItemId);
 
-                FileInfo myFileinfo = new FileInfo(sf.Name);
-                WebClient client1 = new WebClient();
-                client1.Credentials = clientContext.Credentials;
-
-                byte[] fileContents =
-                      client1.DownloadData(sf.LinkingUrl);
-                      
-
-                MemoryStream mStream = new MemoryStream();
-
-                mStream.Write(fileContents, 0, fileContents.Length);
-
-                string[] tags = null;
-
-                if (sf.Tag != null)
+                foreach (Attachment f in item.AttachmentFiles)
                 {
-                    //split comma delimited tags into an array of strings
-                    tags = ((string)sf.Tag).Split(',');
+                    Microsoft.SharePoint.Client.File sf = clientContext.Web.GetFileByServerRelativeUrl(f.ServerRelativeUrl);
+                    clientContext.Load(sf);
+                    clientContext.ExecuteQuery();
+
+                    string mimeType = MimeMapping.GetMimeMapping(sf.Name);
+
+                    FileInfo myFileinfo = new FileInfo(sf.Name);
+                    WebClient client1 = new WebClient();
+                    client1.Credentials = clientContext.Credentials;
+
+                    byte[] fileContents =
+                          client1.DownloadData(sf.LinkingUrl);
+
+
+                    MemoryStream mStream = new MemoryStream();
+
+                    mStream.Write(fileContents, 0, fileContents.Length);
+
+                    string[] tags = null;
+
+                    if (sf.Tag != null)
+                    {
+                        //split comma delimited tags into an array of strings
+                        tags = ((string)sf.Tag).Split(',');
+                    }
+                    string contentType = mimeType;
+                    //now that we have the contents, upload to Sharpr
+                    UploadFileToSharpr(sf.UniqueId.ToString(), sf.Name, tags, contentType, mStream);
                 }
-                string contentType = mimeType;
-                //now that we have the contents, upload to Sharpr
-                UploadFileToSharpr(sf.UniqueId.ToString(), sf.Name, tags, contentType, mStream);
+                Logger.WriteLog(Logger.Category.Information, "OnAddFiles", "Completed.");
+            } catch (Exception ex)
+            {
+                Logger.WriteLog(Logger.Category.Unexpected, "OnAddFiles", ex.Message + Environment.NewLine + ex.StackTrace);
             }
         }
 
 
         private static void OnRemoveFiles(SPRemoteEventProperties properties, ClientContext clientContext)
         {
-            List oList = clientContext.Web.Lists.GetById(properties.ItemEventProperties.ListId);
-            clientContext.Load(oList);
-            clientContext.ExecuteQuery();
-
-            ListItem item = oList.GetItemById(properties.ItemEventProperties.ListItemId);
-
-            foreach (Attachment f in item.AttachmentFiles)
+            Logger.WriteLog(Logger.Category.Information, "OnRemoveFiles", "Started.");
+            try
             {
-                Microsoft.SharePoint.Client.File sf = clientContext.Web.GetFileByServerRelativeUrl(f.ServerRelativeUrl);
+                List oList = clientContext.Web.Lists.GetById(properties.ItemEventProperties.ListId);
+                clientContext.Load(oList);
+                clientContext.ExecuteQuery();
 
-                RemoveFileFromSharpr(sf.UniqueId.ToString());
+                ListItem item = oList.GetItemById(properties.ItemEventProperties.ListItemId);
+
+                foreach (Attachment f in item.AttachmentFiles)
+                {
+                    Microsoft.SharePoint.Client.File sf = clientContext.Web.GetFileByServerRelativeUrl(f.ServerRelativeUrl);
+
+                    RemoveFileFromSharpr(sf.UniqueId.ToString());
+                }
+                Logger.WriteLog(Logger.Category.Information, "OnRemoveFiles", "Completed.");
+            }
+            catch (Exception ex)
+            {
+                Logger.WriteLog(Logger.Category.Unexpected, "OnRemoveFiles", ex.Message + Environment.NewLine + ex.StackTrace);
             }
         }
 
@@ -211,7 +227,7 @@ namespace SharePointAddIn1Web.Services
                 sb.Append("\"data\":\"data:" + contentType + ";base64, " + fileDataString + "\",");
                 sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\"");
                 //sb.Append("\"category\":\"" + fileGUID + "\",");
-                //sb.Append("\"classification\":\"" + fileGUID + "\",");
+                sb.Append("\"classification\":\"" + fileGUID + "\",");
                 if (tags != null)
                 {
                     sb.Append(", \"tags\":{");

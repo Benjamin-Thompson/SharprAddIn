@@ -3,7 +3,7 @@
 <App xmlns="http://schemas.microsoft.com/sharepoint/2012/app/manifest"
      Name="SharePointAddIn1"
      ProductID="{fd806d0c-aba0-4422-8cd4-cb44acc37547}"
-     Version="1.0.0.0"
+     Version="1.0.0.6"
      SharePointMinVersion="16.0.0.0"
 >
   <Properties>
@@ -12,7 +12,7 @@
   </Properties>
 
   <AppPrincipal>
-    <RemoteWebApplication ClientId="*" />
+    <Internal />
   </AppPrincipal>
 
 

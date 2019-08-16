@@ -13,5 +13,17 @@
       <SequenceNumber>10000</SequenceNumber>
       <Url>~remoteAppUrl/Services/SharprFileReceiver.svc</Url>
     </Receiver>
+    <Receiver>
+      <Name>SharprFileReceiverItemAdded</Name>
+      <Type>ItemAdded</Type>
+      <Url />
+      <SequenceNumber>10000</SequenceNumber>
+    </Receiver>
+    <Receiver>
+      <Name>SharprFileReceiverItemDeleted</Name>
+      <Type>ItemDeleted</Type>
+      <Url />
+      <SequenceNumber>10000</SequenceNumber>
+    </Receiver>
   </Receivers>
 </Elements>
